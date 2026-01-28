@@ -64,11 +64,28 @@ TENABLE_SECRET_KEY=your-secret-key-here
 
 ### 3. Configure Claude Code
 
+**Option A: Quick Setup (Recommended)**
+
+Run the setup script which will prompt you for your API keys securely:
+
+```bash
+./setup-mcp.sh
+```
+
+The script will:
+- Prompt for your Tenable.io API keys (Secret Key input is hidden)
+- Configure the MCP server in Claude Code automatically
+- Store credentials securely in Claude Code settings
+
+**Option B: Manual Configuration**
+
 Add the MCP server to your Claude Code settings:
 
 ```bash
 claude mcp add helix-tenable-mcp -s user \
   -e UV_PYTHON="3.13" \
+  -e TENABLE_ACCESS_KEY="your-access-key" \
+  -e TENABLE_SECRET_KEY="your-secret-key" \
   -- uvx --from /Users/YOUR_USERNAME/dev/helix-tenable-mcp helix-tenable-mcp
 ```
 
