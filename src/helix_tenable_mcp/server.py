@@ -46,9 +46,9 @@ def search_vulnerabilities_by_cve(cve_id: str) -> dict[str, Any]:
         cve_id = f"CVE-{cve_id}"
 
     try:
-        # Search for the vulnerability
-        vulns = client.exports.vulns(
-            filters=[('plugin.attributes.cve', 'eq', cve_id)]
+        # Use workbenches API to search for vulnerabilities by CVE
+        vulns = client.workbenches.vulns(
+            filter=('plugin.attributes.cve', 'eq', cve_id)
         )
 
         results = []
@@ -57,15 +57,11 @@ def search_vulnerabilities_by_cve(cve_id: str) -> dict[str, Any]:
                 "plugin_id": vuln.get("plugin_id"),
                 "plugin_name": vuln.get("plugin_name"),
                 "severity": vuln.get("severity"),
-                "cvss_base_score": vuln.get("cvss_base_score"),
-                "cvss3_base_score": vuln.get("cvss3_base_score"),
-                "asset_uuid": vuln.get("asset", {}).get("uuid"),
-                "asset_fqdn": vuln.get("asset", {}).get("fqdn"),
-                "asset_hostname": vuln.get("asset", {}).get("hostname"),
-                "asset_ipv4": vuln.get("asset", {}).get("ipv4"),
-                "first_found": vuln.get("first_found"),
-                "last_found": vuln.get("last_found"),
-                "state": vuln.get("state"),
+                "severity_name": vuln.get("severity_name"),
+                "count": vuln.get("count"),
+                "vulnerability_state": vuln.get("vulnerability_state"),
+                "accepted_count": vuln.get("accepted_count"),
+                "recasted_count": vuln.get("recasted_count"),
             })
 
         return {
@@ -143,32 +139,42 @@ def list_affected_assets(cve_id: str) -> dict[str, Any]:
         cve_id = f"CVE-{cve_id}"
 
     try:
-        # Get vulnerabilities for this CVE
-        vulns = client.exports.vulns(
-            filters=[('plugin.attributes.cve', 'eq', cve_id)]
+        # Use workbenches API to get vulnerabilities by CVE
+        vulns = client.workbenches.vulns(
+            filter=('plugin.attributes.cve', 'eq', cve_id)
         )
 
-        # Collect unique assets
-        assets_map = {}
+        # For each vulnerability plugin, get the affected assets
+        all_assets = []
         for vuln in vulns:
-            asset_uuid = vuln.get("asset", {}).get("uuid")
-            if asset_uuid and asset_uuid not in assets_map:
-                assets_map[asset_uuid] = {
-                    "uuid": asset_uuid,
-                    "fqdn": vuln.get("asset", {}).get("fqdn"),
-                    "hostname": vuln.get("asset", {}).get("hostname"),
-                    "ipv4": vuln.get("asset", {}).get("ipv4"),
-                    "operating_system": vuln.get("asset", {}).get("operating_system", []),
-                    "severity": vuln.get("severity"),
-                    "first_found": vuln.get("first_found"),
-                    "last_found": vuln.get("last_found"),
-                    "state": vuln.get("state"),
-                }
+            plugin_id = vuln.get("plugin_id")
+            if plugin_id:
+                # Get assets affected by this plugin
+                try:
+                    assets = client.workbenches.vuln_assets(plugin_id)
+                    for asset in assets:
+                        all_assets.append({
+                            "uuid": asset.get("uuid"),
+                            "fqdn": asset.get("fqdn"),
+                            "hostname": asset.get("hostname"),
+                            "ipv4": asset.get("ipv4"),
+                            "operating_system": asset.get("operating_system", []),
+                            "severity": asset.get("severity"),
+                            "severity_name": asset.get("severity_name"),
+                            "first_seen": asset.get("first_seen"),
+                            "last_seen": asset.get("last_seen"),
+                        })
+                except Exception as e:
+                    # Skip if we can't get assets for this plugin
+                    continue
+
+        # Remove duplicates by UUID
+        unique_assets = {asset["uuid"]: asset for asset in all_assets if asset.get("uuid")}
 
         return {
             "cve_id": cve_id,
-            "total_affected_assets": len(assets_map),
-            "assets": list(assets_map.values())
+            "total_affected_assets": len(unique_assets),
+            "assets": list(unique_assets.values())
         }
 
     except Exception as e:
@@ -211,9 +217,9 @@ def search_vulnerabilities_by_severity(
         }
 
     try:
-        vulns = client.exports.vulns(
-            filters=[('severity', 'eq', severity_value)],
-            num_assets=limit
+        # Use workbenches API to get vulnerabilities by severity
+        vulns = client.workbenches.vulns(
+            filter=('severity', 'eq', severity_value)
         )
 
         results = []
@@ -225,11 +231,10 @@ def search_vulnerabilities_by_severity(
                 "plugin_id": vuln.get("plugin_id"),
                 "plugin_name": vuln.get("plugin_name"),
                 "severity": vuln.get("severity"),
-                "cvss3_base_score": vuln.get("cvss3_base_score"),
-                "asset_fqdn": vuln.get("asset", {}).get("fqdn"),
-                "asset_hostname": vuln.get("asset", {}).get("hostname"),
-                "first_found": vuln.get("first_found"),
-                "state": vuln.get("state"),
+                "severity_name": vuln.get("severity_name"),
+                "count": vuln.get("count"),
+                "vulnerability_state": vuln.get("vulnerability_state"),
+                "vpr_score": vuln.get("vpr", {}).get("score") if vuln.get("vpr") else None,
             })
 
         return {

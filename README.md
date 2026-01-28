@@ -234,6 +234,34 @@ Verify:
 - Your API keys are valid and not expired
 - Your Tenable.io account has appropriate permissions
 
+### Code Changes Not Taking Effect (Development)
+
+If you've modified the MCP server code but changes aren't reflected:
+
+**Quick fix:**
+```bash
+# In Claude Code conversation
+/mcp
+```
+
+**If that doesn't work, clear caches:**
+```bash
+# Clear Python bytecode cache
+find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+
+# Clear uvx cache (find the hash first)
+ps aux | grep helix-tenable-mcp | grep archive
+rm -rf ~/.cache/uv/archive-v0/<HASH>
+
+# Force reinstall
+uv pip install -e . --force-reinstall --no-deps
+
+# Reconnect in Claude Code
+/mcp
+```
+
+See [CLAUDE.md MCP Server Development](../CLAUDE.md#mcp-server-development-and-troubleshooting) for detailed troubleshooting.
+
 ### SSL Certificate Issues (Netskope)
 
 If using Netskope with SSL inspection, add to your MCP config:
